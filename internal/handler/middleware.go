@@ -2,46 +2,44 @@ package handler
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/constants"
+)
+
+const (
+	hashHeader = "Authorization"
+	userCtx    = "userId"
 )
 
 func (h *Handler) UserIdentify(c *gin.Context) {
 
-	header := c.GetHeader(constants.HashHeader)
+	header := c.GetHeader(hashHeader)
 
 	if header == "" {
+
 		newErrorResponse(c, errors.New("unauthorized"))
 		return
 	}
 
-	headerParts := strings.Split(header, " ")
-	if len(headerParts) != 2 {
-		newErrorResponse(c, errors.New("unauthorized"))
-		return
-	}
-
-	userId, err := h.storage.Autorisation.ParseToken(headerParts[1])
+	userID, err := h.authService.ParseToken(header)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
 	}
 
-	c.Set(constants.UserCtx, userId)
+	c.Set(userCtx, userID)
 }
 
-func getUserId(c *gin.Context) (int, error) {
-	id, ok := c.Get(constants.UserCtx)
-	unauthorized_err := errors.New("Unauthorized")
+func getUserID(c *gin.Context) (int, error) {
+	id, ok := c.Get(userCtx)
+	unauthorizedErr := errors.New("Unauthorized")
 	if !ok {
-		newErrorResponse(c, unauthorized_err)
+		newErrorResponse(c, unauthorizedErr)
 		return 0, errors.New("user id not found")
 	}
 	idInt, ok := id.(int)
 	if !ok {
-		newErrorResponse(c, unauthorized_err)
+		newErrorResponse(c, unauthorizedErr)
 		return 0, errors.New("user id not found")
 	}
 

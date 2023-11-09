@@ -5,22 +5,20 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/luhn"
 	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/models"
-	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/repository"
 )
 
 func (h *Handler) GetBalance(c *gin.Context) {
-	curentuserId, err := getUserId(c)
+	c.Writer.Header().Set("Content-Type", "application/json")
+	currentuserID, err := getUserID(c)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
 	}
 
-	balance, err := h.storage.GetBalance(curentuserId)
+	balance, err := h.accountService.GetBalance(currentuserID)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
@@ -30,7 +28,9 @@ func (h *Handler) GetBalance(c *gin.Context) {
 }
 
 func (h *Handler) Withdraw(c *gin.Context) {
-	curentuserId, err := getUserId(c)
+
+	c.Writer.Header().Set("Content-Type", "application/json")
+	currentuserID, err := getUserID(c)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
@@ -44,6 +44,7 @@ func (h *Handler) Withdraw(c *gin.Context) {
 		h.log.Error(err)
 		return
 	}
+
 	defer c.Request.Body.Close()
 
 	if err := json.Unmarshal(jsonData, &withdraw); err != nil {
@@ -52,7 +53,7 @@ func (h *Handler) Withdraw(c *gin.Context) {
 		return
 	}
 
-	err = h.storage.Withdraw(curentuserId, withdraw)
+	err = h.accountService.Withdraw(currentuserID, withdraw)
 
 	if err != nil {
 		newErrorResponse(c, err)
@@ -63,14 +64,14 @@ func (h *Handler) Withdraw(c *gin.Context) {
 }
 
 func (h *Handler) GetWithdraws(c *gin.Context) {
-
-	curentuserId, err := getUserId(c)
+	c.Writer.Header().Set("Content-Type", "application/json")
+	currentuserID, err := getUserID(c)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
 	}
 
-	withdraws, err := h.storage.GetWithdraws(curentuserId)
+	withdraws, err := h.accountService.GetWithdraws(currentuserID)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
@@ -80,55 +81,5 @@ func (h *Handler) GetWithdraws(c *gin.Context) {
 		newErrorResponse(c, errors.New("NoContent"))
 		return
 	}
-	c.JSON(http.StatusOK, getAllWithdrawalsResponse{
-		Data: withdraws,
-	})
-}
-
-type BalanceService struct {
-	// log  logger.Logger
-	repo repository.Balance
-}
-
-func NewBalanceStorage(repo repository.Balance) *BalanceService {
-	return &BalanceService{repo: repo}
-}
-
-func (b *BalanceService) GetWithdraws(user_id int) ([]models.WithdrawResponse, error) {
-	return b.repo.GetWithdraws(user_id)
-}
-
-func (b *BalanceService) GetBalance(user_id int) (models.Balance, error) {
-	return b.repo.GetBalance(user_id)
-
-}
-func (b *BalanceService) Withdraw(user_id int, withdraw models.Withdraw) error {
-
-	numOrderInt, err := strconv.Atoi(withdraw.Order)
-	if err != nil {
-		return errors.New("PreconditionFailed")
-	}
-
-	correctnum := luhn.Valid(numOrderInt)
-
-	if !correctnum {
-		return errors.New("UnprocessableEntity")
-	}
-
-	balance, err := b.repo.GetBalance(user_id)
-
-	if err != nil {
-		return err
-	}
-	if balance.Current > withdraw.Sum {
-		err := b.repo.DoWithdraw(user_id, withdraw)
-
-		if err != nil {
-			return err
-		}
-	} else {
-		return errors.New("PaymentRequired")
-	}
-
-	return nil
+	c.JSON(http.StatusOK, withdraws)
 }

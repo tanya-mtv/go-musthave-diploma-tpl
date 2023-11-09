@@ -5,22 +5,20 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/luhn"
-	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/models"
-	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/repository"
 )
 
 func (h *Handler) GetOrders(c *gin.Context) {
-	curentuserId, err := getUserId(c)
+	c.Writer.Header().Set("Content-Type", "application/json")
+	currentuserID, err := getUserID(c)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
 	}
 
-	orders, err := h.storage.GetOrders(curentuserId)
+	orders, err := h.ordersService.GetOrders(currentuserID)
 	if err != nil {
 		newErrorResponse(c, err)
 		return
@@ -30,12 +28,12 @@ func (h *Handler) GetOrders(c *gin.Context) {
 		newErrorResponse(c, errors.New("NoContent"))
 		return
 	}
-	c.JSON(http.StatusOK, getAllOrdersResponse{
-		Data: orders,
-	})
+
+	c.JSON(http.StatusOK, orders)
 }
 
 func (h *Handler) PostOrder(c *gin.Context) {
+
 	data, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		newErrorResponse(c, err)
@@ -59,53 +57,29 @@ func (h *Handler) PostOrder(c *gin.Context) {
 		return
 	}
 
-	curentuserId, err := getUserId(c)
-	if err != nil {
-		newErrorResponse(c, err)
-		return
-	}
-
-	user_id, apdatedate, err := h.storage.Orders.CreateOrder(curentuserId, numOrder, "NEW")
+	currentuserID, err := getUserID(c)
 
 	if err != nil {
 		newErrorResponse(c, err)
 		return
 	}
 
-	if curentuserId != user_id {
+	userID, updatedate, err := h.ordersService.CreateOrder(currentuserID, numOrder, "NEW")
+
+	if err != nil {
+		newErrorResponse(c, err)
+		return
+	}
+
+	if currentuserID != userID {
 		newErrorResponse(c, errors.New("conflict"))
 		return
 	}
 
-	if curentuserId == user_id && !apdatedate.IsZero() {
+	if currentuserID == userID && !updatedate.IsZero() {
 		c.JSON(http.StatusOK, "Order was save earlier")
 		return
 	}
 
 	c.JSON(http.StatusAccepted, "Order saved")
-}
-
-type OrdersService struct {
-	// log  logger.Logger
-	repo repository.Orders
-}
-
-func (r *OrdersService) GetOrdersWithStatus() ([]models.OrderResponse, error) {
-	return r.repo.GetOrdersWithStatus()
-}
-
-func (r *OrdersService) ChangeStatusAndSum(sum float64, status, num string) error {
-	return r.repo.ChangeStatusAndSum(sum, status, num)
-}
-
-func (r *OrdersService) CreateOrder(user_id int, num, status string) (int, time.Time, error) {
-	return r.repo.CreateOrder(user_id, num, status)
-}
-
-func (r *OrdersService) GetOrders(user_id int) ([]models.Order, error) {
-	return r.repo.GetOrders(user_id)
-}
-
-func NewOrdersStorage(repo repository.Orders) *OrdersService {
-	return &OrdersService{repo: repo}
 }

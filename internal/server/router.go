@@ -2,13 +2,21 @@ package server
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/handler"
 	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/repository"
+	"github.com/tanya-mtv/go-musthave-diploma-tpl.git/internal/service"
 )
 
-func (s *server) NewRouter(repo *repository.Repository) *gin.Engine {
+func (s *Server) NewRouter(db *sqlx.DB) *gin.Engine {
+	authRepo := repository.NewAuthPostgres(db)
+	ordersRepo := repository.NewOrdersPostgres(db)
+	balanceRepo := repository.NewBalancePostgres(db)
 
-	h := handler.NewHandler(repo, s.cfg, s.log)
+	authService := service.NewAuthStorage(authRepo)
+	accountService := service.NewAccountService(balanceRepo)
+
+	h := handler.NewHandler(authService, ordersRepo, accountService, s.cfg, s.log)
 
 	router := gin.New()
 
@@ -20,7 +28,7 @@ func (s *server) NewRouter(repo *repository.Repository) *gin.Engine {
 
 	router.GET("/api/user/balance", h.UserIdentify, h.GetBalance)
 	router.POST("/api/user/balance/withdraw", h.UserIdentify, h.Withdraw)
-	router.POST("/api/user/withdrawals", h.UserIdentify, h.GetWithdraws)
+	router.GET("/api/user/withdrawals", h.UserIdentify, h.GetWithdraws)
 
 	return router
 }
